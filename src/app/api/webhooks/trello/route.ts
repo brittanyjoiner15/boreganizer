@@ -20,7 +20,10 @@ export async function POST(request: NextRequest) {
   const signature = request.headers.get('x-trello-webhook') ?? ''
   const callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/trello`
 
+  console.log('[trello-webhook] received POST, callbackUrl:', callbackUrl)
+
   if (!verifySignature(body, signature, callbackUrl)) {
+    console.log('[trello-webhook] signature verification failed')
     return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
   }
 
@@ -41,31 +44,41 @@ export async function POST(request: NextRequest) {
   }
 
   const action = payload.action
+  console.log('[trello-webhook] action type:', action?.type)
+
   if (action?.type !== 'updateCard') return NextResponse.json({ ok: true })
-  if (!action.data?.old?.due) return NextResponse.json({ ok: true }) // due date didn't change
+  if (!action.data?.old?.due) {
+    console.log('[trello-webhook] no due date change in old, old keys:', Object.keys(action.data?.old ?? {}))
+    return NextResponse.json({ ok: true })
+  }
 
   const cardId = action.data.card?.id
   const newDue = action.data.card?.due
+  console.log('[trello-webhook] due date change — cardId:', cardId, 'newDue:', newDue)
+
   if (!cardId || !newDue) return NextResponse.json({ ok: true })
 
-  // We store noon UTC, so the date part is always safe to extract
   const newDueDate = new Date(newDue).toISOString().split('T')[0]
 
   const supabase = createServiceClient()
 
-  const { data: syncItem } = await supabase
+  const { data: syncItem, error: syncError } = await supabase
     .from('task_sync_items')
     .select('task_id')
     .eq('external_id', cardId)
     .eq('status', 'active')
     .single()
 
+  console.log('[trello-webhook] sync item lookup — found:', !!syncItem, 'error:', syncError?.message)
+
   if (!syncItem) return NextResponse.json({ ok: true })
 
-  await supabase
+  const { error: updateError } = await supabase
     .from('tasks')
     .update({ next_due_date: newDueDate })
     .eq('id', syncItem.task_id)
+
+  console.log('[trello-webhook] task update — taskId:', syncItem.task_id, 'newDate:', newDueDate, 'error:', updateError?.message)
 
   return NextResponse.json({ ok: true })
 }

@@ -18,7 +18,7 @@ export default function TrelloSetup() {
   useEffect(() => {
     fetchTrelloBoards().then((result) => {
       if ('error' in result) {
-        setError(result.error)
+        setError(result.error ?? null)
       } else {
         setBoards(result.boards)
       }
@@ -38,7 +38,7 @@ export default function TrelloSetup() {
     setLoadingLists(true)
     const result = await fetchTrelloLists(boardId)
     if ('error' in result) {
-      setError(result.error)
+      setError(result.error ?? null)
     } else {
       setLists(result.lists)
     }
@@ -50,7 +50,7 @@ export default function TrelloSetup() {
     setSaving(true)
     const result = await saveTrelloSetup(selectedBoard, selectedBoardName, selectedList, selectedListName)
     if (result && 'error' in result) {
-      setError(result.error)
+      setError(result.error ?? null)
       setSaving(false)
     }
     // On success, revalidatePath causes page to re-render without the setup banner

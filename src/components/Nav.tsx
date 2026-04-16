@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { logout } from '@/app/actions/auth'
 
 export default function Nav() {
   const pathname = usePathname()
@@ -39,15 +38,15 @@ export default function Nav() {
           <span className="text-xs font-semibold">Household</span>
         </Link>
 
-        <form action={logout}>
-          <button
-            type="submit"
-            className="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-stone-400 hover:text-stone-600 transition-colors"
-          >
-            <span className="text-xl">👋</span>
-            <span className="text-xs font-semibold">Sign out</span>
-          </button>
-        </form>
+        <Link
+          href="/settings"
+          className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition-colors ${
+            pathname.startsWith('/settings') || pathname === '/integrations' ? 'text-violet-600' : 'text-stone-400 hover:text-stone-600'
+          }`}
+        >
+          <span className="text-xl">⚙️</span>
+          <span className="text-xs font-semibold">Settings</span>
+        </Link>
       </div>
     </nav>
   )

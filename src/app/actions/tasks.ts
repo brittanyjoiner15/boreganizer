@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getNextDueDate, toDateString } from '@/lib/recurrence'
+import { syncOnCreate, syncOnComplete, syncUpdateDueDate } from '@/lib/sync'
 import type { RecurrenceUnit } from '@/types'
 
 export async function createTask(formData: FormData) {
@@ -36,8 +37,10 @@ export async function createTask(formData: FormData) {
     assigned_to: assignedTo,
   }
 
-  const { error } = await supabase.from('tasks').insert(taskData)
+  const { data: task, error } = await supabase.from('tasks').insert(taskData).select().single()
   if (error) return { error: error.message }
+
+  await syncOnCreate(supabase, task, user.id)
 
   revalidatePath('/dashboard')
   redirect('/dashboard')
@@ -110,6 +113,7 @@ export async function completeTask(formData: FormData) {
 
   // Update next due date/mileage
   let taskUpdate: Record<string, unknown> = {}
+  let nextDueDateStr: string | null = null
 
   if (task.recurrence_type === 'mileage' && mileage !== null) {
     taskUpdate = {
@@ -118,7 +122,8 @@ export async function completeTask(formData: FormData) {
     }
   } else if (task.recurrence_type === 'time') {
     const nextDue = getNextDueDate(completedAt, task.recurrence_value, task.recurrence_unit)
-    taskUpdate = { next_due_date: toDateString(nextDue) }
+    nextDueDateStr = toDateString(nextDue)
+    taskUpdate = { next_due_date: nextDueDateStr }
   }
 
   const { error: updateError } = await supabase
@@ -128,8 +133,31 @@ export async function completeTask(formData: FormData) {
 
   if (updateError) return { error: updateError.message }
 
+  await syncOnComplete(supabase, task, user.id, nextDueDateStr, completedAt)
+
   revalidatePath('/dashboard')
   revalidatePath(`/tasks/${taskId}`)
+  return { success: true }
+}
+
+export async function updateDueDate(taskId: string, newDate: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { data: task, error } = await supabase
+    .from('tasks')
+    .update({ next_due_date: newDate })
+    .eq('id', taskId)
+    .select()
+    .single()
+
+  if (error) return { error: error.message }
+
+  await syncUpdateDueDate(supabase, task, user.id, newDate)
+
+  revalidatePath(`/tasks/${taskId}`)
+  revalidatePath('/dashboard')
   return { success: true }
 }
 

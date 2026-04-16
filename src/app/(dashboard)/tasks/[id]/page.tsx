@@ -5,6 +5,7 @@ import { formatDueDate, formatRecurrence } from '@/lib/recurrence'
 import { archiveTask } from '@/app/actions/tasks'
 import DeleteTaskButton from '@/components/DeleteTaskButton'
 import AssigneePicker from '@/components/AssigneePicker'
+import EditDueDate from '@/components/EditDueDate'
 
 export default async function TaskDetailPage({
   params,
@@ -67,6 +68,9 @@ export default async function TaskDetailPage({
           <div>
             <p className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-1">Next due</p>
             <p className="font-bold text-stone-800">{dueLabel}</p>
+            {task.recurrence_type === 'time' && task.next_due_date && (
+              <EditDueDate taskId={id} currentDueDate={task.next_due_date} />
+            )}
           </div>
           {task.category && (
             <span className="text-xs font-semibold px-3 py-1 rounded-full bg-violet-100 text-violet-700">
